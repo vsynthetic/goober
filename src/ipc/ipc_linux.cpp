@@ -63,12 +63,27 @@ ipc_pipe::ipc_pipe(std::string _path) : fd(-1), client(-1) {
 
 }
 
-bool ipc_pipe::poll_client() {
+bool ipc_pipe::poll_client(int timeout_ms) {
     if (client == -1) {
-        struct sockaddr_un addr;
-        socklen_t addr_size;
-        client = accept(fd, reinterpret_cast<sockaddr*>(&addr), reinterpret_cast<socklen_t*>(&addr_size));
-        return client != -1;
+        fd_set readfds;
+        FD_ZERO(&readfds);
+        FD_SET(fd, &readfds);
+
+        struct timeval timeout = {
+            .tv_sec = timeout_ms / 1000,
+            .tv_usec = (timeout_ms % 1000) * 1000
+        };
+
+        int ready = select(fd + 1, &readfds, nullptr, nullptr,
+                            timeout_ms >= 0 ? &timeout : nullptr);
+
+        if (ready > 0 && FD_ISSET(fd, &readfds)) {
+            struct sockaddr_un addr;
+            socklen_t addr_size;
+            client = accept(fd, reinterpret_cast<sockaddr*>(&addr),
+                            reinterpret_cast<socklen_t*>(&addr_size));
+            return client != -1;
+        }
     }
     return false;
 }

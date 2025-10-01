@@ -17,7 +17,7 @@ public:
     ipc_pipe(std::string path);
     ~ipc_pipe();
 
-    bool poll_client();
+    bool poll_client(int timeout_ms = 0);
     void close_client();
 
     bool is_connected();

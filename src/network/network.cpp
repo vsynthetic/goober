@@ -32,7 +32,7 @@ void network::startup() {
         auto jvm = java::get();
 
         while (running) {
-            if (ipc.poll_client()) {
+            if (ipc.poll_client(200)) {
                 // TODO: enter read/write loop here
                 ipc.close_client();
             }
