@@ -5,7 +5,7 @@
 #include "../ipc/ipc.hpp"
 
 #ifdef _WIN32
-// TODO: define this for windows
+#define PIPE_PATH "\\\\.\\pipe\\meow"
 #else
 #define PIPE_PATH "/tmp/meow.ipc"
 #endif

@@ -13,6 +13,7 @@ class ipc_pipe {
 #ifdef _WIN32
     std::string name;
     HANDLE pipe_handle;
+    bool connected;
 #else
     std::filesystem::path path;
     int fd;
@@ -20,7 +21,7 @@ class ipc_pipe {
 #endif
 
 public:
-    ipc_pipe(std::string path);
+    ipc_pipe(std::string name);
     ~ipc_pipe();
 
     bool poll_client(int timeout_ms = 0);

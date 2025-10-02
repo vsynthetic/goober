@@ -2,14 +2,14 @@
 
 #include "ipc.hpp"
 
-ipc_pipe::ipc_pipe(std::string path) : pipe_handle(nullptr) {
+ipc_pipe::ipc_pipe(std::string name) : name(name), pipe_handle(nullptr), connected(false) {
     pipe_handle = CreateNamedPipeA(
-        path.c_str(),
+        name.c_str(),
         PIPE_ACCESS_DUPLEX,
-        PIPE_TYPE_BYTE | PIPE_NOWAIT | PIPE_REJECT_REMOTE_CLIENTS,
+        PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_NOWAIT | PIPE_REJECT_REMOTE_CLIENTS,
         1,
-        4096,
-        4096,
+        0,
+        0,
         0,
         nullptr
     );
@@ -26,22 +26,40 @@ ipc_pipe::ipc_pipe(std::string path) : pipe_handle(nullptr) {
 
 ipc_pipe::~ipc_pipe() {
     if (pipe_handle != nullptr) {
+        close_client();
+
         CloseHandle(pipe_handle);
     }
 }
 
 bool ipc_pipe::poll_client(int timeout_ms) {
-    return false;
+    if (pipe_handle == INVALID_HANDLE_VALUE) {
+        return connected = false;
+    }
+
+    connected = ConnectNamedPipe(pipe_handle, nullptr) ? TRUE : (GetLastError() == ERROR_PIPE_CONNECTED);
+    return connected;
 }
 
 void ipc_pipe::close_client() {
+    if (pipe_handle == INVALID_HANDLE_VALUE) {
+        return;
+    }
+
+    FlushFileBuffers(pipe_handle);
+    DisconnectNamedPipe(pipe_handle);
+    connected = false;
 }
 
 bool ipc_pipe::is_connected() {
-    return false;
+    return connected;
 }
 
 size_t ipc_pipe::read(void *buffer, size_t size) {
+    if (!connected) {
+        return 0;
+    }
+
     DWORD bytes_read = 0;
     ReadFile(pipe_handle, buffer, size, &bytes_read, nullptr);
     return bytes_read;
