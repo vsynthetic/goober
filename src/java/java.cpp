@@ -1,10 +1,14 @@
 #include "java.hpp"
 #include "jni.h"
+#include "jvmti.h"
 #include <filesystem>
 #include <iostream>
+#include <ostream>
 #include <string>
 
 java::java() : dumped(false) {
+    caps = {};
+
     if (JNI_GetCreatedJavaVMs(&m_jvm, 1, nullptr) != JNI_OK) {
         std::cerr << "Failed to get created Java VMs." << std::endl;
         exit(1);
@@ -21,20 +25,31 @@ java::java() : dumped(false) {
     }
 
     dump();
+
+    caps.can_retransform_any_class = 1;
+    caps.can_retransform_classes = 1;
+    caps.can_redefine_any_class = 1;
+    caps.can_redefine_classes = 1;
+
+    m_ti->AddCapabilities(&caps);
 }
 
 java::~java() {
-    m_jvm->DetachCurrentThread();
+    if (m_ti)
+        m_ti->RelinquishCapabilities(&caps);
+
+    if (m_jvm)
+        m_jvm->DetachCurrentThread();
 }
 
 void java::dump() {
-    if (dumped) {
-        std::cout << "skipped dumping classes due to pre-existing dump data" << std::endl;
-        return;
-    }
-
     jint count;
-    static thread_local jclass *loaded_classes;
+    static thread_local jclass *loaded_classes = nullptr;
+
+    if (loaded_classes != nullptr) {
+        m_ti->Deallocate(reinterpret_cast<unsigned char *>(loaded_classes));
+        loaded_classes = nullptr;
+    }
 
     // memory leaks but i don't care enough atm
     if (m_ti->GetLoadedClasses(&count, &loaded_classes) != JVMTI_ERROR_NONE) {
@@ -54,21 +69,24 @@ void java::dump() {
 		m_env->ReleaseStringUTFChars(name, className);
     }
 
-    dumped = true;
+    // std::cout << "dumped " << count << " classes" << std::endl;
+}
 
-    std::cout << "dumped " << count << " classes" << std::endl;
+void java::cache(std::string name, jclass clazz) {
+    if (!class_map.contains(name))
+        class_map.emplace(name, clazz);
 }
 
 jclass java::get_class(std::string name) {
     auto pos = class_map.find(name);
     if (pos == class_map.end()) {
-        auto lookup = m_env->FindClass(name.c_str());
-        if (lookup) {
-            class_map.emplace(name, lookup);
+        dump();
 
-            return lookup;
-        } else {
+        auto pos2 = class_map.find(name);
+        if (pos2 == class_map.end()) {
             return nullptr;
+        } else {
+            return pos2->second;
         }
     } else {
         return pos->second;
@@ -80,50 +98,51 @@ java* java::get() {
     return &instance;
 }
 
+#include "utility.cpp"
+
 load_status java::load_jar(std::filesystem::path path, std::string agent_class) {
-    if (!std::filesystem::exists(path)) {
-        return load_status::FILE_NOT_FOUND;
-    }
+    auto class_loader = get_class("java.lang.ClassLoader");
+    auto get_system_loader = m_env->GetStaticMethodID(class_loader, "getSystemClassLoader", "()Ljava/lang/ClassLoader;");
+    auto system_loader = m_env->CallStaticObjectMethod(class_loader, get_system_loader);
 
-    auto URLClassLoader = get_class("java/net/URLClassLoader");
-    auto File = get_class("java/io/File");
-    auto URI = get_class("java/net/URI");
-    auto URL = get_class("java/net/URL");
+    auto clazz = m_env->DefineClass(
+        embedded::cat_psychward_goober_Utility_name,
+        system_loader,
+        reinterpret_cast<jbyte *>(embedded::cat_psychward_goober_Utility),
+        embedded::cat_psychward_goober_Utility_size
+    );
 
-    auto File_init = m_env->GetMethodID(File, "<init>", "(Ljava/lang/String;)V");
-    auto toURI = m_env->GetMethodID(File, "toURI", "()Ljava/net/URI;");
-    auto toURL = m_env->GetMethodID(URI, "toURL", "()Ljava/net/URL;");
+    auto load_agent = m_env->GetStaticMethodID(clazz, "loadAgent", "(Ljava/lang/String;Ljava/lang/String;)V");
+    auto utility = m_env->NewObject(clazz, m_env->GetMethodID(get_class("java.lang.Object"), "<init>", "()V"));
+    auto path_str = path.string();
 
-    auto URLClassLoader_init = m_env->GetMethodID(URLClassLoader, "<init>", "([Ljava/net/URL;)V");
-    auto loadClass = m_env->GetMethodID(URLClassLoader, "loadClass", "(Ljava/lang/String;)Ljava/lang/Class;");
+    auto path_j_str = m_env->NewStringUTF(path_str.c_str());
+    auto agent_class_j_str = m_env->NewStringUTF(agent_class.c_str());
 
-    std::string str = path.string();
-    const char* ptr = str.c_str();
-    auto java_path = m_env->NewStringUTF(ptr);
-    auto file_instance = m_env->NewObject(File, File_init, java_path);
-
-    auto uri_instance = m_env->CallObjectMethod(file_instance, toURI);
-    auto url_instance = m_env->CallObjectMethod(uri_instance, toURL);
-
-    auto url_array = m_env->NewObjectArray(1, URL, url_instance);
-
-    auto loader = m_env->NewObject(URLClassLoader, URLClassLoader_init, url_array);
-
-    auto agent_class_str = m_env->NewStringUTF(agent_class.c_str());
-    auto agent_class_obj = m_env->CallObjectMethod(loader, loadClass, agent_class_str);
-
-    auto onAgentLoadID = m_env->GetMethodID(reinterpret_cast<jclass>(agent_class_obj), "onAgentLoad", "()V");
-    m_env->CallVoidMethod(agent_class_obj, onAgentLoadID);
-
-    m_env->DeleteLocalRef(agent_class_obj);
-    m_env->DeleteLocalRef(agent_class_str);
-    m_env->DeleteLocalRef(loader);
-    m_env->DeleteLocalRef(url_array);
-    m_env->DeleteLocalRef(url_instance);
-    m_env->DeleteLocalRef(uri_instance);
-    m_env->DeleteLocalRef(file_instance);
-    m_env->ReleaseStringUTFChars(java_path, ptr);
-    m_env->DeleteLocalRef(java_path);
+    m_env->CallVoidMethod(utility, load_agent, path_j_str, agent_class_j_str);
 
     return load_status::OK;
+}
+
+std::ostream& operator<<(std::ostream& stream, load_status status) {
+
+    switch (status) {
+    case load_status::OK:
+        stream << "OK";
+        break;
+    case load_status::FILE_NOT_FOUND:
+        stream << "File not found";
+        break;
+    case load_status::CLASS_NOT_FOUND:
+        stream << "Class not found";
+        break;
+    case load_status::METHOD_NOT_FOUND:
+        stream << "Method not found";
+        break;
+    case load_status::AGENT_LOAD_NOT_FOUND:
+        stream << "onAgentLoad() not found";
+        break;
+    }
+
+    return stream;
 }

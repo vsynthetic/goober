@@ -40,7 +40,7 @@ ipc_pipe::ipc_pipe(std::string _path) : fd(-1), client(-1) {
         exit(1);
     }
 
-    std::cout << "Created unix socket. File descriptor: " << fd << std::endl;
+    // std::cout << "Created unix socket. File descriptor: " << fd << std::endl;
 
     memset(&saddr, 0, sizeof(saddr));
     saddr.sun_family = AF_UNIX;
@@ -52,14 +52,14 @@ ipc_pipe::ipc_pipe(std::string _path) : fd(-1), client(-1) {
         exit(1);
     }
 
-    std::cout << "Bound unix socket." << std::endl;
+    // std::cout << "Bound unix socket." << std::endl;
 
     if (listen(fd, 1) == -1) {
         std::cerr << "Failed to listen on socket: " << get_message(errno) << std::endl;
         exit(1);
     }
 
-    std::cout << "Listening on unix socket." << std::endl;
+    // std::cout << "Listening on unix socket." << std::endl;
 
 }
 
@@ -74,14 +74,12 @@ bool ipc_pipe::poll_client(int timeout_ms) {
             .tv_usec = (timeout_ms % 1000) * 1000
         };
 
-        int ready = select(fd + 1, &readfds, nullptr, nullptr,
-                            timeout_ms >= 0 ? &timeout : nullptr);
+        int ready = select(fd + 1, &readfds, nullptr, nullptr, timeout_ms >= 0 ? &timeout : nullptr);
 
         if (ready > 0 && FD_ISSET(fd, &readfds)) {
             struct sockaddr_un addr;
             socklen_t addr_size;
-            client = accept(fd, reinterpret_cast<sockaddr*>(&addr),
-                            reinterpret_cast<socklen_t*>(&addr_size));
+            client = accept(fd, reinterpret_cast<sockaddr*>(&addr), reinterpret_cast<socklen_t*>(&addr_size));
             return client != -1;
         }
     }

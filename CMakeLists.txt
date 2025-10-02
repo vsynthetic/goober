@@ -15,8 +15,7 @@ set(GOOBER_HEADERS
     src/lib/lib.hpp
     src/network/network.hpp
     src/java/java.hpp
-    src/ipc/ipc.hpp
-        src/ipc/ipc_win32.cpp)
+    src/ipc/ipc.hpp)
 
 add_library(goober SHARED
     ${GOOBER_SOURCES}
@@ -30,3 +29,8 @@ endif()
 
 # TODO: should probably depend on system java in the future?
 target_include_directories(goober PRIVATE ext/java ext/java/${GOOBER_OS})
+
+include(tools/CompileUtility.cmake)
+add_dependencies(goober generate_utility_cpp)
+
+target_include_directories(goober PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/generated)
