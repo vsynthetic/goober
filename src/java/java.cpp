@@ -5,10 +5,9 @@
 #include <iostream>
 #include <ostream>
 #include <string>
+#include "../lib/lib.hpp"
 
-java::java() : dumped(false) {
-    caps = {};
-
+java::java() : dumped(false), caps({}), callbacks({}) {
     if (JNI_GetCreatedJavaVMs(&m_jvm, 1, nullptr) != JNI_OK) {
         std::cerr << "Failed to get created Java VMs." << std::endl;
         exit(1);
@@ -32,11 +31,20 @@ java::java() : dumped(false) {
     caps.can_redefine_classes = 1;
 
     m_ti->AddCapabilities(&caps);
+
+    callbacks.VMDeath = [](jvmtiEnv *jvmti_env, JNIEnv* jni_env) {
+        lib::get()->uninit();
+    };
+
+    m_ti->SetEventCallbacks(&callbacks, sizeof(jvmtiEventCallbacks));
+    m_ti->SetEventNotificationMode(JVMTI_ENABLE, JVMTI_EVENT_VM_DEATH, nullptr);
 }
 
 java::~java() {
-    if (m_ti)
+    if (m_ti) {
+        m_ti->SetEventNotificationMode(JVMTI_DISABLE, JVMTI_EVENT_VM_DEATH, nullptr);
         m_ti->RelinquishCapabilities(&caps);
+    }
 
     if (m_jvm)
         m_jvm->DetachCurrentThread();
@@ -121,6 +129,7 @@ load_status java::load_jar(std::filesystem::path path, std::string agent_class) 
 
     if (m_env->ExceptionCheck()) {
         m_env->ExceptionDescribe();
+        return load_status::EXCEPTION_CAUGHT;
     }
 
     return load_status::OK;
@@ -132,17 +141,8 @@ std::ostream& operator<<(std::ostream& stream, load_status status) {
     case load_status::OK:
         stream << "OK";
         break;
-    case load_status::FILE_NOT_FOUND:
-        stream << "File not found";
-        break;
-    case load_status::CLASS_NOT_FOUND:
-        stream << "Class not found";
-        break;
-    case load_status::METHOD_NOT_FOUND:
-        stream << "Method not found";
-        break;
-    case load_status::AGENT_LOAD_NOT_FOUND:
-        stream << "onAgentLoad() not found";
+    case load_status::EXCEPTION_CAUGHT:
+        stream << "Exception caught";
         break;
     }
 

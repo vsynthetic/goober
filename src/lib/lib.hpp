@@ -1,9 +1,12 @@
 #pragma once
 
 #include "../java/java.hpp"
+#include <atomic>
 #include <memory>
 
 class lib {
+    std::atomic<bool> initialized;
+
 public:
     java* jvm;
 

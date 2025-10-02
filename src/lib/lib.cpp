@@ -1,19 +1,23 @@
 #include "lib.hpp"
 #include "../network/network.hpp"
-#include <filesystem>
-#include <iostream>
 #include <memory>
 
 void lib::init() {
+    if (initialized) return;
+
     jvm = java::get();
 
-    std::cout << jvm->load_jar(std::filesystem::path("/home/lia/Code/java/generic/agent-test/build/libs/agent-test-1.0-SNAPSHOT.jar"), "cat.psychward.Agent") << std::endl;
-
     network::get()->startup();
+
+    initialized = true;
 }
 
 void lib::uninit() {
+    if (!initialized) return;
+
     network::get()->shutdown();
+
+    initialized = false;
 }
 
 std::shared_ptr<lib> &lib::get() {
