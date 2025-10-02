@@ -1,5 +1,5 @@
 #ifdef _WIN32
-// TODO: implement windows
+#include "ipc_win32.cpp"
 #else
 #include "ipc_linux.cpp"
 #endif

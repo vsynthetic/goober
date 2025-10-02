@@ -15,13 +15,18 @@ set(GOOBER_HEADERS
     src/lib/lib.hpp
     src/network/network.hpp
     src/java/java.hpp
-    src/ipc/ipc.hpp)
+    src/ipc/ipc.hpp
+        src/ipc/ipc_win32.cpp)
 
 add_library(goober SHARED
     ${GOOBER_SOURCES}
     ${GOOBER_HEADERS})
 
 string(TOLOWER "${CMAKE_SYSTEM_NAME}" GOOBER_OS)
+
+if (${GOOBER_OS} STREQUAL "windows")
+    set(GOOBER_OS "win32")
+endif()
 
 # TODO: should probably depend on system java in the future?
 target_include_directories(goober PRIVATE ext/java ext/java/${GOOBER_OS})

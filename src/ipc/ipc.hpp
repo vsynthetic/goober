@@ -3,10 +3,16 @@
 #include <filesystem>
 #include <string>
 
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#endif
+
 class ipc_pipe {
 
 #ifdef _WIN32
     std::string name;
+    HANDLE pipe_handle;
 #else
     std::filesystem::path path;
     int fd;

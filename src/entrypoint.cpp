@@ -1,6 +1,6 @@
 #include "lib/lib.hpp"
 
-#ifndef __WIN32
+#ifndef _WIN32
 
 __attribute__((constructor))
 void load() {
