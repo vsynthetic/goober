@@ -68,8 +68,6 @@ void java::dump() {
 
 		m_env->ReleaseStringUTFChars(name, className);
     }
-
-    // std::cout << "dumped " << count << " classes" << std::endl;
 }
 
 void java::cache(std::string name, jclass clazz) {
@@ -120,6 +118,10 @@ load_status java::load_jar(std::filesystem::path path, std::string agent_class) 
     auto agent_class_j_str = m_env->NewStringUTF(agent_class.c_str());
 
     m_env->CallVoidMethod(utility, load_agent, path_j_str, agent_class_j_str);
+
+    if (m_env->ExceptionCheck()) {
+        m_env->ExceptionDescribe();
+    }
 
     return load_status::OK;
 }

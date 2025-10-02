@@ -8,7 +8,7 @@ set(CPP_FILE ${CMAKE_SOURCE_DIR}/src/java/utility.cpp)
 
 add_custom_command(
     OUTPUT ${CLASS_FILE}
-    COMMAND javac ${JAVA_FILE}
+    COMMAND javac ${JAVA_FILE} --release 8
     DEPENDS ${JAVA_FILE}
     COMMENT "Compiling ${JAVA_FILE}"
 )

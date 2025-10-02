@@ -40,8 +40,6 @@ ipc_pipe::ipc_pipe(std::string _path) : fd(-1), client(-1) {
         exit(1);
     }
 
-    // std::cout << "Created unix socket. File descriptor: " << fd << std::endl;
-
     memset(&saddr, 0, sizeof(saddr));
     saddr.sun_family = AF_UNIX;
     strncpy(saddr.sun_path, path.c_str(), sizeof(saddr.sun_path) - 1);
@@ -52,15 +50,10 @@ ipc_pipe::ipc_pipe(std::string _path) : fd(-1), client(-1) {
         exit(1);
     }
 
-    // std::cout << "Bound unix socket." << std::endl;
-
     if (listen(fd, 1) == -1) {
         std::cerr << "Failed to listen on socket: " << get_message(errno) << std::endl;
         exit(1);
     }
-
-    // std::cout << "Listening on unix socket." << std::endl;
-
 }
 
 bool ipc_pipe::poll_client(int timeout_ms) {
