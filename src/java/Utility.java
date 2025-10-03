@@ -26,4 +26,8 @@ public final class Utility {
         }
     }
 
+    public static native int redefineClass(String className, byte[] data);
+
+    public static native int redefineClass(Class<?> clazz, byte[] data);
+
 }

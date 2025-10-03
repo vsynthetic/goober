@@ -19,9 +19,9 @@ class java {
     std::unordered_map<std::string, jclass> class_map;
     bool dumped;
 
-    JavaVM *m_jvm;
-    JNIEnv *m_env;
-    jvmtiEnv *m_ti;
+    JavaVM* m_jvm;
+    JNIEnv* m_env;
+    jvmtiEnv* m_ti;
 
     jvmtiCapabilities caps;
     jvmtiEventCallbacks callbacks;
@@ -40,5 +40,9 @@ public:
     void cache(std::string name, jclass clazz);
 
     jclass get_class(std::string name);
+
+    JavaVM* jvm();
+    JNIEnv* env();
+    jvmtiEnv* ti();
 
 };

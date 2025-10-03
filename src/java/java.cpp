@@ -5,7 +5,33 @@
 #include <iostream>
 #include <ostream>
 #include <string>
+#include <vector>
 #include "../lib/lib.hpp"
+
+
+JNIEXPORT jint JNICALL redefine_class_c(JNIEnv* env, jclass owner, jclass j_class, jbyteArray new_bytes) {
+    auto length = env->GetArrayLength(new_bytes);
+    std::vector<jbyte> buffer(length);
+    env->GetByteArrayRegion(new_bytes, 0, length, buffer.data());
+
+    auto definition = jvmtiClassDefinition {
+        .klass = j_class,
+        .class_byte_count = length,
+        .class_bytes = reinterpret_cast<const unsigned char*>(buffer.data())
+    };
+
+    return java::get()->ti()->RedefineClasses(1, &definition);
+}
+
+JNIEXPORT jint JNICALL redefine_class_s(JNIEnv* env, jclass owner, jstring j_class_name, jbyteArray new_bytes) {
+    auto jvm = java::get();
+
+    const char* class_name = env->GetStringUTFChars(j_class_name, nullptr);
+    auto value = redefine_class_c(env, owner, jvm->get_class(class_name), new_bytes);
+    env->ReleaseStringUTFChars(j_class_name, class_name);
+
+    return value;
+}
 
 java::java() : dumped(false), caps({}), callbacks({}) {
     if (JNI_GetCreatedJavaVMs(&m_jvm, 1, nullptr) != JNI_OK) {
@@ -48,6 +74,18 @@ java::~java() {
 
     if (m_jvm)
         m_jvm->DetachCurrentThread();
+}
+
+JavaVM* java::jvm() {
+    return m_jvm;
+}
+
+JNIEnv* java::env() {
+    return m_env;
+}
+
+jvmtiEnv* java::ti() {
+    return m_ti;
 }
 
 void java::dump() {
@@ -111,6 +149,8 @@ load_status java::load_jar(std::filesystem::path path, std::string agent_class) 
     auto get_system_loader = m_env->GetStaticMethodID(class_loader, "getSystemClassLoader", "()Ljava/lang/ClassLoader;");
     auto system_loader = m_env->CallStaticObjectMethod(class_loader, get_system_loader);
 
+    // TODO: this should probably be more than one class so we can build a sort of stdlib
+    // which will then also be packaged into a .jar file for use as a library
     auto clazz = m_env->DefineClass(
         embedded::cat_psychward_goober_Utility_name,
         system_loader,
@@ -121,6 +161,12 @@ load_status java::load_jar(std::filesystem::path path, std::string agent_class) 
     auto load_agent = m_env->GetStaticMethodID(clazz, "loadAgent", "(Ljava/lang/String;Ljava/lang/String;)V");
     auto utility = m_env->NewObject(clazz, m_env->GetMethodID(get_class("java.lang.Object"), "<init>", "()V"));
     auto path_str = path.string();
+
+    const JNINativeMethod methods[] = {
+        { const_cast<char*>("redefineClass"), const_cast<char*>("(Ljava/lang/String;[B)I"), reinterpret_cast<void*>(&redefine_class_s) },
+        { const_cast<char*>("redefineClass"), const_cast<char*>("(Ljava/lang/Class;[B)I"), reinterpret_cast<void*>(&redefine_class_c) },
+    };
+    m_env->RegisterNatives(clazz, reinterpret_cast<const JNINativeMethod *>(&methods), 2);
 
     auto path_j_str = m_env->NewStringUTF(path_str.c_str());
     auto agent_class_j_str = m_env->NewStringUTF(agent_class.c_str());
