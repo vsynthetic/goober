@@ -20,7 +20,7 @@ void lib::uninit() {
     initialized = false;
 }
 
-std::shared_ptr<lib> &lib::get() {
+std::shared_ptr<lib>& lib::get() {
     static std::shared_ptr<lib> g_lib = std::make_shared<lib>();
     return g_lib;
 }

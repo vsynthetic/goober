@@ -32,5 +32,3 @@ target_include_directories(goober PRIVATE ext/java ext/java/${GOOBER_OS})
 
 include(tools/CompileUtility.cmake)
 add_dependencies(goober generate_utility_cpp)
-
-target_include_directories(goober PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/generated)

@@ -104,7 +104,7 @@ ipc_pipe::~ipc_pipe() {
     }
 }
 
-size_t ipc_pipe::read(void *buffer, size_t size) {
+size_t ipc_pipe::read(void* buffer, size_t size) {
     if (client == -1)
         return 0;
 

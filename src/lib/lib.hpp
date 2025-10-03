@@ -13,5 +13,5 @@ public:
     void init();
     void uninit();
 
-    static std::shared_ptr<lib> &get();
+    static std::shared_ptr<lib>& get();
 };

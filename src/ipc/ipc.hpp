@@ -21,7 +21,7 @@ class ipc_pipe {
 #endif
 
 public:
-    ipc_pipe(std::string name);
+    ipc_pipe(std::string path);
     ~ipc_pipe();
 
     bool poll_client(int timeout_ms = 0);
@@ -29,6 +29,8 @@ public:
 
     bool is_connected();
 
-    size_t read(void *buffer, size_t size);
+    size_t read(void* buffer, size_t size);
+
+    size_t read_or_close(void* buffer, size_t size);
 
 };

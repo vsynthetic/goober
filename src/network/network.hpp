@@ -13,7 +13,7 @@ public:
     network();
     ~network();
 
-    static std::shared_ptr<network> &get();
+    static std::shared_ptr<network>& get();
 
     void startup();
     void shutdown();
