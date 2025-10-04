@@ -143,9 +143,6 @@ def parse_constant_pool(buf: buffer) -> list:  # pyright: ignore[reportMissingTy
             length = buf.read_u2()
             utf8_bytes = buf.read(length)
             constant_pool.append(utf8_bytes.decode("utf-8"))  # pyright: ignore[reportArgumentType]
-            # utf8_bytes = data[pos : pos + length]
-            # constant_pool.append(utf8_bytes.decode("utf-8"))  # pyright: ignore[reportArgumentType]
-            # pos += length
         elif tag in (7, 8):
             index = buf.read_u2()
             constant_pool.append(index)
