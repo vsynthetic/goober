@@ -318,19 +318,6 @@ def compile_java(
                 lines.append(f"                .access = {hex(method.access)},\n")
                 lines.append("            },\n")
 
-            # method_count = len(info.methods)
-            # if method_count > 0:
-            #     lines.append(
-            #         f"const char* {var_name}_methods[{method_count}][{2}] = {{\n"
-            #     )
-            #     for method in info.methods:
-            #         lines.append(f'{{ "{method.name}", "{method.desc}" }},\n')
-            #     lines.append("};\n\n")
-
-            #     lines.append(f"uint16_t {var_name}_method_acc[] = {{\n")
-            #     for method in info.methods:
-            #         lines.append(f"{hex(method.access)},\n")
-            #     lines.append("};\n\n")
             lines.append("        }\n")
             lines.append("    },\n")
 
