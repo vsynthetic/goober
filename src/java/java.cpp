@@ -149,14 +149,20 @@ load_status java::load_jar(std::filesystem::path path, std::string agent_class) 
     auto get_system_loader = m_env->GetStaticMethodID(class_loader, "getSystemClassLoader", "()Ljava/lang/ClassLoader;");
     auto system_loader = m_env->CallStaticObjectMethod(class_loader, get_system_loader);
 
-    // TODO: this should probably be more than one class so we can build a sort of stdlib
-    // which will then also be packaged into a .jar file for use as a library
+    // TODO: in case we ever want to load more classes this will fail
+    // not important yet though
+    auto utility_info = embedded::classes[0];
+
     auto clazz = m_env->DefineClass(
-        embedded::cat_psychward_goober_Utility_name,
+        utility_info.name,
         system_loader,
-        reinterpret_cast<jbyte *>(embedded::cat_psychward_goober_Utility),
-        embedded::cat_psychward_goober_Utility_size
+        reinterpret_cast<jbyte *>(utility_info.bytes.data()),
+        utility_info.bytes.size()
     );
+
+    if (clazz == 0) {
+        return load_status::CLASS_NOT_LOADED;
+    }
 
     auto load_agent = m_env->GetStaticMethodID(clazz, "loadAgent", "(Ljava/lang/String;Ljava/lang/String;)V");
     auto utility = m_env->NewObject(clazz, m_env->GetMethodID(get_class("java.lang.Object"), "<init>", "()V"));

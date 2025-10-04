@@ -9,7 +9,8 @@
 
 enum class load_status : uint8_t {
     OK = 0,
-    EXCEPTION_CAUGHT
+    EXCEPTION_CAUGHT,
+    CLASS_NOT_LOADED
 };
 
 std::ostream& operator<<(std::ostream& stream, load_status status);

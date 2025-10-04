@@ -275,7 +275,23 @@ def compile_java(
         lines = [
             "// Auto-generated C++ embedded Java classes\n",
             "#include <cstdint> \n",
+            "#include <vector>\n",
+            "\n",
             "namespace embedded {\n",
+            "\n",
+            "struct method_info {\n",
+            "    const char* name;\n",
+            "    const char* desc;\n",
+            "    uint16_t access;\n",
+            "};\n",
+            "\n",
+            "struct class_info {\n",
+            "    const char* name;\n",
+            "    std::vector<unsigned char> bytes;\n",
+            "    std::vector<method_info> methods;\n",
+            "};\n",
+            "\n",
+            "std::vector<class_info> classes = {\n",
         ]
         class_names: list[str] = []
 
@@ -288,39 +304,37 @@ def compile_java(
                 bytes_data = f.read()
             byte_str = ", ".join(f"0x{b:02x}" for b in bytes_data)
 
-            lines.append(f"// Auto-generated from {cf}\n")
-            lines.append(f"// Class: {info.name}\n\n")
-            lines.append(f"unsigned char {var_name}[] = {{ {byte_str} }};\n")
-            lines.append(f"unsigned int {var_name}_size = {len(bytes_data)};\n")
-            lines.append(
-                f'const char* {var_name}_name = "{info.name.replace(".", "/")}";\n\n'
-            )
+            lines.append("    class_info {\n")
+            lines.append(f"        // Auto-generated from {cf}\n")
+            lines.append(f"        // Class: {info.name}\n")
+            lines.append(f'        .name = "{info.name.replace(".", "/")}",\n')
+            lines.append(f"        .bytes = {{ {byte_str} }},\n")
+            lines.append("        .methods = {\n")
 
-            method_count = len(info.methods)
-            if method_count > 0:
-                lines.append(
-                    f"const char* {var_name}_methods[{method_count}][{2}] = {{\n"
-                )
-                for method in info.methods:
-                    lines.append(f'{{ "{method.name}", "{method.desc}" }},\n')
-                lines.append("};\n\n")
+            for method in info.methods:
+                lines.append("            method_info {\n")
+                lines.append(f'                .name = "{method.name}",\n')
+                lines.append(f'                .desc = "{method.desc}",\n')
+                lines.append(f"                .access = {hex(method.access)},\n")
+                lines.append("            },\n")
 
-                lines.append(f"uint16_t {var_name}_method_acc[] = {{\n")
-                for method in info.methods:
-                    lines.append(f"{hex(method.access)},\n")
-                lines.append("};\n\n")
+            # method_count = len(info.methods)
+            # if method_count > 0:
+            #     lines.append(
+            #         f"const char* {var_name}_methods[{method_count}][{2}] = {{\n"
+            #     )
+            #     for method in info.methods:
+            #         lines.append(f'{{ "{method.name}", "{method.desc}" }},\n')
+            #     lines.append("};\n\n")
 
-        lines.append("unsigned char *classes[] = {\n")
-        for cn in class_names:
-            lines.append(f"    {cn},\n")
+            #     lines.append(f"uint16_t {var_name}_method_acc[] = {{\n")
+            #     for method in info.methods:
+            #         lines.append(f"{hex(method.access)},\n")
+            #     lines.append("};\n\n")
+            lines.append("        }\n")
+            lines.append("    },\n")
+
         lines.append("};\n\n")
-
-        lines.append("const char* class_names[] = {\n")
-        for cn in class_names:
-            lines.append(f"    {cn}_name,\n")
-        lines.append("};\n\n")
-
-        lines.append(f"unsigned int classes_count = {len(class_names)};\n")
         lines.append("}\n")
 
         with open(cpp_output, "w") as f:
