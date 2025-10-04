@@ -1,22 +1,13 @@
 find_package(Java REQUIRED)
 
-file(COPY_FILE ${CMAKE_SOURCE_DIR}/src/java/Utility.java ${CMAKE_BINARY_DIR}/Utility.java)
-
-set(JAVA_FILE ${CMAKE_BINARY_DIR}/Utility.java)
-set(CLASS_FILE ${CMAKE_BINARY_DIR}/Utility.class)
-set(CPP_FILE ${CMAKE_SOURCE_DIR}/src/java/utility.cpp)
-
-add_custom_command(
-    OUTPUT ${CLASS_FILE}
-    COMMAND javac ${JAVA_FILE} --release 8
-    DEPENDS ${JAVA_FILE}
-    COMMENT "Compiling ${JAVA_FILE}"
-)
+set(JAVA_SOURCE ${CMAKE_SOURCE_DIR}/javasrc)
+set(CPP_FILE ${CMAKE_SOURCE_DIR}/src/java/embedded.cpp)
+set(JAR_FILE ${CMAKE_BINARY_DIR}/goober-stdlib.jar)
 
 add_custom_command(
     OUTPUT ${CPP_FILE}
-    COMMAND python3 ${CMAKE_SOURCE_DIR}/tools/generate_cpp.py ${CLASS_FILE} ${JAVA_FILE} ${CPP_FILE}
-    DEPENDS ${CLASS_FILE} ${JAVA_FILE}
+    OUTPUT ${JAR_FILE}
+    COMMAND python3 ${CMAKE_SOURCE_DIR}/tools/java_tool.py --source ${JAVA_SOURCE} --jarpath ${JAR_FILE} -o build/java --output ${CPP_FILE}
     COMMENT "Generating C++ source from ${CLASS_FILE}"
 )
 

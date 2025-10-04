@@ -10,16 +10,25 @@ import java.net.URLClassLoader;
 
 public final class Utility {
 
-    public static void loadAgent(String path, String agentClass) throws IOException, ReflectiveOperationException {
+    public static void loadAgent(String path, String agentClass)
+        throws IOException, ReflectiveOperationException {
         final File file = new File(path);
 
-        if (!file.exists())
-            throw new FileNotFoundException("Path " + path + " does not exist!");
+        if (!file.exists()) throw new FileNotFoundException(
+            "Path " + path + " does not exist!"
+        );
 
-        try (final URLClassLoader classLoader = new URLClassLoader(new URL[] {file.toURI().toURL()})) {
+        try (
+            final URLClassLoader classLoader = new URLClassLoader(
+                new URL[] { file.toURI().toURL() }
+            )
+        ) {
             final Class<?> agentClazz = classLoader.loadClass(agentClass);
-            final Method onAgentLoad = agentClazz.getDeclaredMethod("onAgentLoad");
-            final Constructor<?> constructor = agentClazz.getDeclaredConstructor();
+            final Method onAgentLoad = agentClazz.getDeclaredMethod(
+                "onAgentLoad"
+            );
+            final Constructor<?> constructor =
+                agentClazz.getDeclaredConstructor();
             constructor.setAccessible(true);
 
             onAgentLoad.invoke(constructor.newInstance());
@@ -29,5 +38,4 @@ public final class Utility {
     public static native int redefineClass(String className, byte[] data);
 
     public static native int redefineClass(Class<?> clazz, byte[] data);
-
 }

@@ -142,7 +142,7 @@ java* java::get() {
     return &instance;
 }
 
-#include "utility.cpp"
+#include "embedded.cpp"
 
 load_status java::load_jar(std::filesystem::path path, std::string agent_class) {
     auto class_loader = get_class("java.lang.ClassLoader");
