@@ -3,6 +3,14 @@ import os
 import struct
 import subprocess
 import sys
+from typing import override
+
+
+# java flags
+ACC_PUBLIC = 0x0001
+ACC_PRIVATE = 0x0002
+ACC_PROTECTED = 0x0004
+ACC_NATIVE = 0x0100
 
 
 class arg_flag:
@@ -62,6 +70,27 @@ class cmdbuf:
         return subprocess.run(self.args, check=False).returncode
 
 
+class method_info:
+    def __init__(self, name: str, access: int, desc: str) -> None:
+        self.access: int = access
+        self.name: str = name
+        self.desc: str = desc
+
+    @override
+    def __str__(self) -> str:
+        return self.name + self.desc
+
+
+class class_info:
+    def __init__(self, name: str, methods: list[method_info]) -> None:
+        self.methods: list[method_info] = methods
+        self.name: str = name
+
+    @override
+    def __str__(self) -> str:
+        return self.name
+
+
 def parse_class_information(file: str) -> tuple[str, str]:
     with open(file, "r") as f:
         java_source = f.read()
@@ -73,70 +102,132 @@ def parse_class_information(file: str) -> tuple[str, str]:
     return package_name, simple_class_name
 
 
-def extract_class_name(class_file: str) -> str:
-    with open(class_file, "rb") as f:
-        data = f.read()
+class buffer:
+    def __init__(self, data: bytes):
+        self.data: bytes = data
+        self.pos: int = 0
+        pass
 
-    pos = 0
-
-    def read_u1():
-        nonlocal pos
-        val = data[pos]
-        pos += 1
+    def read_u1(self):
+        val = self.data[self.pos]
+        self.pos += 1
         return val
 
-    def read_u2():
-        nonlocal pos
-        val = struct.unpack(">H", data[pos : pos + 2])[0]
-        pos += 2
+    def read_u2(self) -> int:
+        val: int = struct.unpack(">H", self.data[self.pos : self.pos + 2])[0]  # pyright: ignore[reportAny]
+        self.pos += 2
         return val
 
-    def read_u4():
-        nonlocal pos
-        val = struct.unpack(">I", data[pos : pos + 4])[0]
-        pos += 4
+    def read_u4(self) -> int:
+        val: int = struct.unpack(">I", self.data[self.pos : self.pos + 4])[0]  # pyright: ignore[reportAny]
+        self.pos += 4
         return val
 
-    magic = read_u4()
-    if magic != 0xCAFEBABE:
-        raise ValueError(f"Not a valid class file: {class_file}")
+    def read(self, size: int) -> bytes:
+        bytes = self.data[self.pos : self.pos + size]
+        self.pos += size
+        return bytes
 
-    read_u2()
-    read_u2()
-    constant_pool_count = read_u2()
+    def skip(self, count: int) -> None:
+        self.pos += count
 
-    constant_pool = [None]
+
+def parse_constant_pool(buf: buffer) -> list:  # pyright: ignore[reportMissingTypeArgument, reportUnknownParameterType]
+    constant_pool_count = buf.read_u2()
+
+    constant_pool: list = [None]  # pyright: ignore[reportMissingTypeArgument]
     i = 1
     while i < constant_pool_count:
-        tag = read_u1()
+        tag = buf.read_u1()
         if tag == 1:
-            length = read_u2()
-            utf8_bytes = data[pos : pos + length]
-            constant_pool.append(utf8_bytes.decode("utf-8"))
-            pos += length
+            length = buf.read_u2()
+            utf8_bytes = buf.read(length)
+            constant_pool.append(utf8_bytes.decode("utf-8"))  # pyright: ignore[reportArgumentType]
+            # utf8_bytes = data[pos : pos + length]
+            # constant_pool.append(utf8_bytes.decode("utf-8"))  # pyright: ignore[reportArgumentType]
+            # pos += length
         elif tag in (7, 8):
-            index = read_u2()
+            index = buf.read_u2()
             constant_pool.append(index)
         elif tag in (3, 4):
-            pos += 4
+            buf.skip(4)
             constant_pool.append(None)
         elif tag in (5, 6):
-            pos += 8
+            buf.skip(8)
             constant_pool.append(None)
             i += 1
         elif tag in (9, 10, 11, 12, 15, 16, 18):
-            pos += 4 if tag in (9, 10, 11, 12, 18) else 3
+            buf.skip(4 if tag in (9, 10, 11, 12, 18) else 3)
             constant_pool.append(None)
         else:
             raise ValueError(f"Unknown constant pool tag {tag}")
         i += 1
 
-    read_u2()
-    this_class_index = read_u2()
+    return constant_pool
+
+
+def parse_methods(buf: buffer, constant_pool: list) -> list[method_info]:  # pyright: ignore[reportMissingTypeArgument]
+    parsed: list[method_info] = []
+    methods_count = buf.read_u2()
+
+    for i in range(methods_count):
+        access = buf.read_u2()
+        name_index = buf.read_u2()
+        descriptor_index = buf.read_u2()
+        attributes_count = buf.read_u2()
+
+        name = constant_pool[name_index]
+        desc = constant_pool[descriptor_index]
+
+        for _ in range(attributes_count):
+            _ = buf.read_u2()  # attribute_name_index
+            length = buf.read_u4()
+            buf.skip(length)
+
+        parsed.append(method_info(name, access, desc))
+
+    return parsed
+
+
+def extract_class_information(class_file: str) -> class_info:
+    with open(class_file, "rb") as f:
+        data = f.read()
+
+    buf = buffer(data)
+
+    magic = buf.read_u4()
+    if magic != 0xCAFEBABE:
+        raise ValueError(f"Not a valid class file: {class_file}")
+
+    _ = buf.read_u2()  # major version
+    _ = buf.read_u2()  # minor version
+
+    constant_pool = parse_constant_pool(buf)
+
+    _ = buf.read_u2()  # access
+    this_class_index = buf.read_u2()
     class_name_index = constant_pool[this_class_index]
     class_name = constant_pool[class_name_index]
 
-    return class_name.replace("/", ".")
+    _ = buf.read_u2()  # super_class
+
+    interfaces_count = buf.read_u2()
+    buf.skip(interfaces_count * 2)  # u2 = 2 * 1 byte
+
+    fields_count = buf.read_u2()
+    for _ in range(fields_count):
+        buf.skip(6)  # access_flags + name_index + descriptor_index (3 * u2)
+        attributes_count = buf.read_u2()
+        for _ in range(attributes_count):
+            _ = buf.read_u2()  # attribute_name_index
+            length = buf.read_u4()
+            buf.skip(length)
+
+    methods = parse_methods(buf, constant_pool)
+    for m in methods:
+        print(m)
+
+    return class_info(class_name.replace("/", "."), methods)
 
 
 def compile_java(
@@ -175,7 +266,7 @@ def compile_java(
             return ret
 
     if cpp_output is not None:
-        class_files = []
+        class_files: list[str] = []
         for dirpath, _, filenames in os.walk(output_dir):
             for f in filenames:
                 if f.endswith(".class"):
@@ -183,14 +274,14 @@ def compile_java(
 
         lines = [
             "// Auto-generated C++ embedded Java classes\n",
+            "#include <cstdint> \n",
             "namespace embedded {\n",
         ]
-        class_names = []
-        class_real_names = []
+        class_names: list[str] = []
 
         for cf in class_files:
-            class_name = extract_class_name(cf)
-            var_name = class_name.replace(".", "_")
+            info = extract_class_information(cf)
+            var_name = info.name.replace(".", "_")
             class_names.append(var_name)
 
             with open(cf, "rb") as f:
@@ -198,12 +289,26 @@ def compile_java(
             byte_str = ", ".join(f"0x{b:02x}" for b in bytes_data)
 
             lines.append(f"// Auto-generated from {cf}\n")
-            lines.append(f"// Class: {class_name}\n\n")
+            lines.append(f"// Class: {info.name}\n\n")
             lines.append(f"unsigned char {var_name}[] = {{ {byte_str} }};\n")
             lines.append(f"unsigned int {var_name}_size = {len(bytes_data)};\n")
             lines.append(
-                f'const char* {var_name}_name = "{class_name.replace(".", "/")}";\n\n'
+                f'const char* {var_name}_name = "{info.name.replace(".", "/")}";\n\n'
             )
+
+            method_count = len(info.methods)
+            if method_count > 0:
+                lines.append(
+                    f"const char* {var_name}_methods[{method_count}][{2}] = {{\n"
+                )
+                for method in info.methods:
+                    lines.append(f'{{ "{method.name}", "{method.desc}" }},\n')
+                lines.append("};\n\n")
+
+                lines.append(f"uint16_t {var_name}_method_acc[] = {{\n")
+                for method in info.methods:
+                    lines.append(f"{hex(method.access)},\n")
+                lines.append("};\n\n")
 
         lines.append("unsigned char *classes[] = {\n")
         for cn in class_names:
