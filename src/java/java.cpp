@@ -201,9 +201,6 @@ java::~java() {
         m_ti->SetEventNotificationMode(JVMTI_DISABLE, JVMTI_EVENT_VM_DEATH, nullptr);
         m_ti->RelinquishCapabilities(&caps);
     }
-
-    if (m_jvm)
-        m_jvm->DetachCurrentThread();
 }
 
 jclass java::define_class(const char* name, jobject class_loader, jbyte* buffer, jsize size) {
