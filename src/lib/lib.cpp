@@ -5,8 +5,6 @@
 void lib::init() {
     if (initialized) return;
 
-    jvm = java::get();
-
     network::get()->startup();
 
     initialized = true;

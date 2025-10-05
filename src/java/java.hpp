@@ -29,6 +29,8 @@ class java {
 
     java();
 
+    jclass define_class(const char* name, jobject class_loader, jbyte* buffer, jsize size);
+
     void dump();
 
 public:

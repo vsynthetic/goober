@@ -7,10 +7,16 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
+
+import cat.psychward.goober.ClassLoadListener;
 
 public final class Utility {
 
-    public static void loadAgent(String path, String agentClass)
+    private static final List<ClassLoadListener> loadListeners = new CopyOnWriteArrayList<>();
+
+    private static void loadAgent(String path, String agentClass)
         throws IOException, ReflectiveOperationException {
         final File file = new File(path);
 
@@ -38,4 +44,12 @@ public final class Utility {
     public static native int redefineClass(String className, byte[] data);
 
     public static native int redefineClass(Class<?> clazz, byte[] data);
+
+    public static native int retransformClass(String className);
+
+    public static native int retransformClass(Class<?> clazz);
+
+    public static void onClassLoad(ClassLoadListener listener) {
+        loadListeners.add(listener);
+    }
 }
