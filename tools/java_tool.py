@@ -91,17 +91,6 @@ class class_info:
         return self.name
 
 
-def parse_class_information(file: str) -> tuple[str, str]:
-    with open(file, "r") as f:
-        java_source = f.read()
-
-    package_name = java_source.split("package ")[1].split(";")[0]
-
-    simple_class_name = java_source.split("class ")[1].split(" ")[0]
-
-    return package_name, simple_class_name
-
-
 class buffer:
     def __init__(self, data: bytes):
         self.data: bytes = data

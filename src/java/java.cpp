@@ -196,6 +196,9 @@ std::ostream& operator<<(std::ostream& stream, load_status status) {
     case load_status::EXCEPTION_CAUGHT:
         stream << "Exception caught";
         break;
+    case load_status::CLASS_NOT_LOADED:
+        stream << "Class not loaded";
+        break;
     }
 
     return stream;
